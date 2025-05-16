@@ -18,9 +18,10 @@ def display_banner():
 
 def run_command(host, cmd):
     """Jalankan perintah pada host Mininet tertentu"""
-    full_cmd = f"h{host} {cmd}"
-    print(f"Running on h{host}: {cmd}")
-    os.system(f"mn -c {full_cmd}")
+    # FIX: Langsung jalankan perintah tanpa menggunakan 'mn -c'
+    # karena script ini sudah dijalankan dari dalam host di mininet
+    print(f"Running: {cmd}")
+    os.system(cmd)
     return True
 
 def generate_normal_traffic(duration=60):
@@ -30,13 +31,11 @@ def generate_normal_traffic(duration=60):
     end_time = time.time() + duration
     while time.time() < end_time:
         # Ping antar host
-        src = 1
-        dst = 2
-        run_command(src, f"ping -c 3 10.0.0.{dst}")
+        run_command(None, f"ping -c 3 10.0.0.2")
 
         # HTTP request sederhana (perlu httpd pada target)
         try:
-            run_command(3, "wget -q -O /dev/null http://10.0.0.4")
+            run_command(None, "wget -q -O /dev/null http://10.0.0.4 || true")
         except:
             pass
 
@@ -50,19 +49,14 @@ def run_syn_flood(target_host, duration=30):
     print(f"\n[+] Starting SYN flood against h{target_host} for {duration} seconds")
 
     # Gunakan hping3 untuk SYN flood
-    cmd = f"hping3 -S --flood -V -p 80 10.0.0.{target_host}"
-
-    # Jalankan dari host tertentu - menggunakan h1 sebagai attacker
-    attacker_host = 1
-
-    # Jalankan dalam background process
-    process = subprocess.Popen(f"mn -c h{attacker_host} {cmd}", shell=True)
+    cmd = f"hping3 -S --flood -V -p 80 10.0.0.{target_host} &"
+    run_command(None, cmd)
 
     # Tunggu durasi serangan
     time.sleep(duration)
 
     # Terminate attack
-    process.terminate()
+    run_command(None, "pkill -f hping3")
     print(f"[+] SYN flood attack completed")
 
 def run_port_scan(target_host):
@@ -71,10 +65,7 @@ def run_port_scan(target_host):
 
     # Gunakan nmap untuk port scanning
     cmd = f"nmap -T4 -p 1-1000 10.0.0.{target_host}"
-
-    # Jalankan dari host tertentu
-    attacker_host = 3
-    run_command(attacker_host, cmd)
+    run_command(None, cmd)
 
     print(f"[+] Port scan completed")
 
@@ -83,19 +74,14 @@ def run_udp_flood(target_host, duration=30):
     print(f"\n[+] Starting UDP flood against h{target_host} for {duration} seconds")
 
     # Gunakan hping3 untuk UDP flood
-    cmd = f"hping3 --udp -p 53 --flood 10.0.0.{target_host}"
-
-    # Jalankan dari host tertentu
-    attacker_host = 3
-
-    # Jalankan dalam background process
-    process = subprocess.Popen(f"mn -c h{attacker_host} {cmd}", shell=True)
+    cmd = f"hping3 --udp -p 53 --flood 10.0.0.{target_host} &"
+    run_command(None, cmd)
 
     # Tunggu durasi serangan
     time.sleep(duration)
 
     # Terminate attack
-    process.terminate()
+    run_command(None, "pkill -f hping3")
     print(f"[+] UDP flood attack completed")
 
 def attack_menu():
@@ -124,22 +110,21 @@ def attack_menu():
             run_port_scan(int(target))
         elif choice == '5':
             print("\n[+] Running full attack scenario...")
-            # Background normal traffic
-            normal_thread = Thread(target=generate_normal_traffic, args=(180,))
-            normal_thread.daemon = True
-            normal_thread.start()
 
-            # Wait before starting attacks
-            time.sleep(30)
+            # Run normal traffic (simple version - just a few pings)
+            print("Running some normal traffic first...")
+            for i in range(5):
+                run_command(None, "ping -c 2 10.0.0.2")
+                time.sleep(1)
 
             # Run attacks in sequence
-            run_syn_flood(2, 30)
-            time.sleep(10)
+            run_syn_flood(2, 10)
+            time.sleep(2)
 
             run_port_scan(4)
-            time.sleep(10)
+            time.sleep(2)
 
-            run_udp_flood(2, 30)
+            run_udp_flood(2, 10)
 
             print("[+] Full attack scenario completed!")
         elif choice == '0':
@@ -151,10 +136,9 @@ def attack_menu():
 if __name__ == "__main__":
     display_banner()
 
-    # Check if running in Mininet
-    if 'PYTHONPATH' in os.environ and 'mininet' in os.environ['PYTHONPATH']:
-        print("Running inside Mininet environment")
-    else:
+    # Simplified check if running in Mininet
+    in_mininet = 'TERM' in os.environ and os.environ.get('HOME', '').startswith('/root')
+    if not in_mininet:
         print("WARNING: This script is designed to run inside Mininet!")
         if input("Continue anyway? (y/n): ").lower() != 'y':
             sys.exit(1)
