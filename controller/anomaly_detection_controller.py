@@ -480,36 +480,45 @@ class AnomalyDetectionController(app_manager.RyuApp):
         if len(flow['features']) < self.sequence_length:
             # Not enough data for sequence
             return False, 0.0
-
+    
         # Get the last sequence_length feature vectors
         sequence = flow['features'][-self.sequence_length:]
-
+    
         try:
-            # Send to edge node for prediction
-            payload = {'features': sequence}
+            # Convert sequence to list for JSON serialization
+            sequence_list = []
+            for feature_vector in sequence:
+                if hasattr(feature_vector, 'tolist'):
+                    sequence_list.append(feature_vector.tolist())
+                else:
+                    sequence_list.append(feature_vector)
+    
+            # Send to edge node for prediction with properly serialized sequence
+            payload = {'features': sequence_list}
             response = requests.post(self.edge_api_url, json=payload, timeout=1.0)
-
+    
             if response.status_code == 200:
                 result = response.json()
                 is_anomaly = result.get('is_anomaly', False)
                 prediction = result.get('prediction', 0.0)
                 inference_time = result.get('inference_time_ms', 0.0)
-
+    
                 # Update statistics
                 if is_anomaly:
                     self.detection_count['anomaly'] += 1
                 else:
                     self.detection_count['normal'] += 1
-
+    
                 logger.info(f"Flow {flow_id}: {'ANOMALY' if is_anomaly else 'NORMAL'} (score: {prediction:.4f}, time: {inference_time:.2f}ms)")
                 return is_anomaly, prediction
             else:
                 logger.error(f"Edge node error: {response.status_code}, {response.text}")
                 return False, 0.0
-
+    
         except Exception as e:
             logger.error(f"Error during anomaly detection: {e}")
             return False, 0.0
+
 
     def _handle_anomaly(self, datapath, flow_id, in_port, pkt):
         """Handle detected anomaly - implement blocking rules"""
