@@ -1,9 +1,0 @@
-tensorflow
-numpy
-pandas
-tflite-runtime
-flask
-requests
-scikit-learn
-matplotlib
-seaborn
