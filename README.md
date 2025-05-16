@@ -20,18 +20,29 @@ This project implements a real-time anomaly detection system integrated into a S
 
 ## Repository Structure
 ```
-sdn-anomaly-detector/
-├── model/
-├── edge/
+roor/
 ├── controller/
-├── data/
-├── testbed/
-├── docs/
-│   ├── img/
-│   ├── setup_guide.md
-│   └── results.md
-├── requirements.txt
-└── README.md
+│   ├── anomaly_detection_controller.py
+│   ├── sdn_topology.py
+│   └── requirements.txt
+├── edge-node/
+│   ├── edge_inference_service.py
+│   ├── model_converter.py
+│   └── requirements.txt
+├── model/
+│   ├── train_model.py
+│   ├── preprocess_dataset.py
+│   └── requirements.txt
+├── evaluation/
+│   ├── evaluation.py
+│   ├── ddos_simulator.py
+│   └── requirements.txt
+├── setup/
+│   ├── setup_controller_vm.sh
+│   ├── setup_edge_vm.sh
+│   └── README.md
+├── README.md
+└── LICENSE
 ```
 
 ## Quick Start
