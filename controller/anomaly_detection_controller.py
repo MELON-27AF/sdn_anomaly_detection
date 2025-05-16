@@ -478,77 +478,51 @@ class AnomalyDetectionController(app_manager.RyuApp):
         return flow_id, flow
 
     def _detect_anomaly(self, flow_id, flow):
-    """Send features to edge node for anomaly detection"""
-    if len(flow['features']) < self.sequence_length:
-        # Not enough data for sequence
-        return False, 0.0
-
-    # Get the last sequence_length feature vectors
-    sequence = flow['features'][-self.sequence_length:]
-
-    try:
-        # Debug what we're working with
-        logger.info(f"Flow {flow_id}: Debug - Type of sequence: {type(sequence)}")
-        logger.info(f"Flow {flow_id}: Debug - Length of sequence: {len(sequence)}")
-        logger.info(f"Flow {flow_id}: Debug - Type of first element: {type(sequence[0])}")
-
-        # Convert sequence to list for JSON serialization - more careful conversion
-        sequence_list = []
-        for i, feature_vector in enumerate(sequence):
-            try:
-                # Try to convert each vector explicitly to Python list
-                if isinstance(feature_vector, np.ndarray):
-                    feature_vector = feature_vector.tolist()
-                elif hasattr(feature_vector, 'tolist'):
-                    feature_vector = feature_vector.tolist()
-
-                # Verify it's now a simple list
-                if not isinstance(feature_vector, list):
-                    feature_vector = list(feature_vector)
-
-                sequence_list.append(feature_vector)
-            except Exception as e:
-                logger.error(f"Flow {flow_id}: Error converting feature vector {i}: {e}")
-                # Use an empty list as fallback to avoid breaking the sequence
-                sequence_list.append([0.0] * len(self.feature_names))
-
-        # Test JSON serialization explicitly before sending
+        """Send features to edge node for anomaly detection"""
+        if len(flow['features']) < self.sequence_length:
+            # Not enough data for sequence
+            return False, 0.0
+    
+        # Get the last sequence_length feature vectors
+        sequence = flow['features'][-self.sequence_length:]
+    
         try:
-            test_json = json.dumps({'features': sequence_list})
-            logger.info(f"Flow {flow_id}: JSON serialization successful, length: {len(test_json)}")
-        except Exception as e:
-            logger.error(f"Flow {flow_id}: JSON serialization failed: {e}")
-            return False, 0.0
-
-        # Send to edge node for prediction with properly serialized sequence
-        payload = {'features': sequence_list}
-        response = requests.post(self.edge_api_url, json=payload, timeout=1.0)
-
-        # Rest of code remains the same
-        if response.status_code == 200:
-            result = response.json()
-            is_anomaly = result.get('is_anomaly', False)
-            prediction = result.get('prediction', 0.0)
-            inference_time = result.get('inference_time_ms', 0.0)
-
-            # Update statistics
-            if is_anomaly:
-                self.detection_count['anomaly'] += 1
+            # Convert sequence to list for JSON serialization
+            sequence_list = []
+            for feature_vector in sequence:
+                if hasattr(feature_vector, 'tolist'):
+                    # Ambil hanya 47 fitur pertama
+                    feature_vector = feature_vector[:47].tolist()
+                else:
+                    # Ambil hanya 47 fitur pertama
+                    feature_vector = list(feature_vector)[:47]
+                sequence_list.append(feature_vector)
+    
+            # Send to edge node for prediction
+            payload = {'features': sequence_list}
+            response = requests.post(self.edge_api_url, json=payload, timeout=1.0)
+    
+            if response.status_code == 200:
+                result = response.json()
+                is_anomaly = result.get('is_anomaly', False)
+                prediction = result.get('prediction', 0.0)
+                inference_time = result.get('inference_time_ms', 0.0)
+    
+                # Update statistics
+                if is_anomaly:
+                    self.detection_count['anomaly'] += 1
+                else:
+                    self.detection_count['normal'] += 1
+    
+                logger.info(f"Flow {flow_id}: {'ANOMALY' if is_anomaly else 'NORMAL'} (score: {prediction:.4f}, time: {inference_time:.2f}ms)")
+                return is_anomaly, prediction
             else:
-                self.detection_count['normal'] += 1
-
-            logger.info(f"Flow {flow_id}: {'ANOMALY' if is_anomaly else 'NORMAL'} (score: {prediction:.4f}, time: {inference_time:.2f}ms)")
-            return is_anomaly, prediction
-        else:
-            logger.error(f"Edge node error: {response.status_code}, {response.text}")
+                logger.error(f"Edge node error: {response.status_code}, {response.text}")
+                return False, 0.0
+    
+        except Exception as e:
+            logger.error(f"Error during anomaly detection: {e}")
             return False, 0.0
-
-    except Exception as e:
-        logger.error(f"Error during anomaly detection: {e}")
-        # Print traceback for better debugging
-        import traceback
-        logger.error(traceback.format_exc())
-        return False, 0.0
 
     def _handle_anomaly(self, datapath, flow_id, in_port, pkt):
         """Handle detected anomaly - implement blocking rules"""
