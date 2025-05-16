@@ -53,7 +53,9 @@ class AnomalyDetectionController(app_manager.RyuApp):
             'Active Mean', 'Active Std', 'Active Max', 'Active Min',
             'Idle Mean', 'Idle Std', 'Idle Max', 'Idle Min'
         ]
-
+        
+        self.feature_names = self.feature_names[:47]
+        
         self.num_features = len(self.feature_names)
         logger.info(f"Initialized with {self.num_features} features and sequence length {self.sequence_length}")
 
