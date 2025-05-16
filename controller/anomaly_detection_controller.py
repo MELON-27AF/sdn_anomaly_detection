@@ -9,8 +9,6 @@ import time
 import numpy as np
 import logging
 import json
-import threading
-from collections import deque
 
 # Konfigurasi logging
 logging.basicConfig(
@@ -62,6 +60,9 @@ class AnomalyDetectionController(app_manager.RyuApp):
         # Statistik
         self.detection_count = {'normal': 0, 'anomaly': 0}
         self.blocked_flows = set()
+
+        # Mac address table
+        self.mac_to_port = {}
 
         # Verifikasi koneksi dengan edge node
         self._check_edge_node_connection()
@@ -571,13 +572,22 @@ class AnomalyDetectionController(app_manager.RyuApp):
         if not ip_pkt:
             # Forward non-IP packets normally
             actions = [parser.OFPActionOutput(ofproto.OFPP_FLOOD)]
-            out = parser.OFPPacketOut(
-                datapath=datapath,
-                buffer_id=msg.buffer_id if msg.buffer_id != ofproto.OFP_NO_BUFFER else None,
-                in_port=in_port,
-                actions=actions,
-                data=msg.data if msg.buffer_id == ofproto.OFP_NO_BUFFER else None
-            )
+
+            # FIX: Handle buffer_id correctly
+            if msg.buffer_id != ofproto.OFP_NO_BUFFER:
+                out = parser.OFPPacketOut(
+                    datapath=datapath,
+                    buffer_id=msg.buffer_id,
+                    in_port=in_port,
+                    actions=actions)
+            else:
+                out = parser.OFPPacketOut(
+                    datapath=datapath,
+                    buffer_id=ofproto.OFP_NO_BUFFER,
+                    in_port=in_port,
+                    actions=actions,
+                    data=msg.data)
+
             datapath.send_msg(out)
             return
 
@@ -587,13 +597,22 @@ class AnomalyDetectionController(app_manager.RyuApp):
         if not flow_id or not flow:
             # If feature extraction failed, forward normally
             actions = [parser.OFPActionOutput(ofproto.OFPP_FLOOD)]
-            out = parser.OFPPacketOut(
-                datapath=datapath,
-                buffer_id=msg.buffer_id if msg.buffer_id != ofproto.OFP_NO_BUFFER else None,
-                in_port=in_port,
-                actions=actions,
-                data=msg.data if msg.buffer_id == ofproto.OFP_NO_BUFFER else None
-            )
+
+            # FIX: Handle buffer_id correctly
+            if msg.buffer_id != ofproto.OFP_NO_BUFFER:
+                out = parser.OFPPacketOut(
+                    datapath=datapath,
+                    buffer_id=msg.buffer_id,
+                    in_port=in_port,
+                    actions=actions)
+            else:
+                out = parser.OFPPacketOut(
+                    datapath=datapath,
+                    buffer_id=ofproto.OFP_NO_BUFFER,
+                    in_port=in_port,
+                    actions=actions,
+                    data=msg.data)
+
             datapath.send_msg(out)
             return
 
@@ -609,11 +628,20 @@ class AnomalyDetectionController(app_manager.RyuApp):
 
         # Forward normal traffic
         actions = [parser.OFPActionOutput(ofproto.OFPP_FLOOD)]
-        out = parser.OFPPacketOut(
-            datapath=datapath,
-            buffer_id=msg.buffer_id if msg.buffer_id != ofproto.OFP_NO_BUFFER else None,
-            in_port=in_port,
-            actions=actions,
-            data=msg.data if msg.buffer_id == ofproto.OFP_NO_BUFFER else None
-        )
+
+        # FIX: Handle buffer_id correctly
+        if msg.buffer_id != ofproto.OFP_NO_BUFFER:
+            out = parser.OFPPacketOut(
+                datapath=datapath,
+                buffer_id=msg.buffer_id,
+                in_port=in_port,
+                actions=actions)
+        else:
+            out = parser.OFPPacketOut(
+                datapath=datapath,
+                buffer_id=ofproto.OFP_NO_BUFFER,
+                in_port=in_port,
+                actions=actions,
+                data=msg.data)
+
         datapath.send_msg(out)
