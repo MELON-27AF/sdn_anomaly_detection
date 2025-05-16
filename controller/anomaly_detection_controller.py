@@ -27,7 +27,7 @@ class AnomalyDetectionController(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(AnomalyDetectionController, self).__init__(*args, **kwargs)
         # Konfigurasi edge node - sesuaikan IP dengan edge node Anda
-        self.edge_api_url = "http://127.0.0.1:5000/predict"  # Ganti dengan IP edge node
+        self.edge_api_url = "http://192.168.33.139:5000/predict"  # Ganti dengan IP edge node
 
         # Konfigurasi buffer untuk flow
         self.flow_buffer = {}  # Store flow features
