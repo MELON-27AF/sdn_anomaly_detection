@@ -211,7 +211,13 @@ class AnomalyDetectionController(app_manager.RyuApp):
             if tcp_pkt:
                 flow['fwd_header_bytes'] += 20  # Simplified - TCP header size
                 if flow['packet_count'] == 1:
-                    flow['fwd_init_win'] = tcp_pkt.window
+                    # Periksa apakah atribut window ada, jika tidak gunakan nilai default
+                    try:
+                        flow['fwd_init_win'] = tcp_pkt.window
+                    except AttributeError:
+                        # Nilai default window size 65535 (atau 0 jika tidak ingin membuat asumsi)
+                        flow['fwd_init_win'] = 65535  # Default TCP window size
+
         else:
             flow['bwd_packet_count'] += 1
             flow['total_bwd_bytes'] += len(pkt.data)
@@ -219,7 +225,12 @@ class AnomalyDetectionController(app_manager.RyuApp):
             if tcp_pkt:
                 flow['bwd_header_bytes'] += 20  # Simplified - TCP header size
                 if flow['packet_count'] == 1:
-                    flow['bwd_init_win'] = tcp_pkt.window
+                    # Periksa apakah atribut window ada, jika tidak gunakan nilai default
+                    try:
+                        flow['bwd_init_win'] = tcp_pkt.window
+                    except AttributeError:
+                        # Nilai default window size
+                        flow['bwd_init_win'] = 65535  # Default TCP window size
 
         # Update TCP flag counts
         if tcp_pkt:
