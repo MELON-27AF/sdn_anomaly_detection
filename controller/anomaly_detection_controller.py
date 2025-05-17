@@ -19,7 +19,7 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
-logger = logging.getLogger("anomaly-detection-controller")
+logger = logging.getLogger()  # gunakan root logger yang sudah dikonfigurasi
 
 class AnomalyDetectionController(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
